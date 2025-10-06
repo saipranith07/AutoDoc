@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AutoDoc – Smart Code Documentation Generator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #111827;
+            color: #d1d5db;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #4f46e5;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        #result-container {
+            white-space: pre-wrap; 
+            word-wrap: break-word; 
+            background-color: #1f2937;
+            border: 1px solid #374151;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            font-family: 'Courier New', Courier, monospace;
+            line-height: 1.6;
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+
+    <div class="container">
+        <header class="text-center mb-8">
+            <h1 class="text-3xl md:text-4xl font-bold text-white mb-2">AutoDoc</h1>
+            <p class="text-lg text-gray-400">Smart Code Documentation Generator</p>
+        </header>
+
+        <main>
+            <div class="bg-gray-800 p-6 rounded-lg shadow-lg">
+                <label for="codeInput" class="block text-lg font-medium text-gray-300 mb-2">Paste Your Code Below</label>
+                <textarea 
+                    id="codeInput"
+                    class="w-full h-64 p-3 bg-gray-900 border border-gray-700 rounded-md text-gray-200 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-200"
+                    placeholder="e.g., function helloWorld() { console.log('Hello, World!'); }"
+                ></textarea>
+                
+                <div class="mt-4 text-center">
+                    <button id="generateBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 w-full md:w-auto">
+                        Generate Documentation
+                    </button>
+                </div>
+            </div>
+
+            <div id="loadingIndicator" class="hidden my-8 flex flex-col items-center justify-center">
+                <div class="loader"></div>
+                <p class="mt-4 text-lg text-gray-400">Analyzing your code and generating docs...</p>
+            </div>
+            
+            <div id="error-message" class="hidden my-6 bg-red-900 border border-red-700 text-red-200 px-4 py-3 rounded-lg text-center">
+            </div>
+
+            <div id="resultSection" class="hidden my-8">
+                <h2 class="text-2xl font-bold text-white mb-4">Generated Documentation</h2>
+                <div id="result-container" class="text-gray-300"></div>
+                <div class="mt-6 text-center">
+                    <button id="downloadBtn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg transition duration-300 w-full md:w-auto">
+                        Download as .txt
+                    </button>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        const generateBtn = document.getElementById('generateBtn');
+        const codeInput = document.getElementById('codeInput');
+        const loadingIndicator = document.getElementById('loadingIndicator');
+        const resultSection = document.getElementById('resultSection');
+        const resultContainer = document.getElementById('result-container');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const errorMessageDiv = document.getElementById('error-message');
+
+        generateBtn.addEventListener('click', async () => {
+            const code = codeInput.value.trim();
+            if (!code) {
+                showError('Please paste some code into the text area first.');
+                return;
+            }
+
+            resultSection.classList.add('hidden');
+            errorMessageDiv.classList.add('hidden');
+            loadingIndicator.classList.remove('hidden');
+            generateBtn.disabled = true;
+            generateBtn.textContent = 'Generating...';
+
+            try {
+                const response = await fetch('http://127.0.0.1:5000/generate-docs', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ code: code }),
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                
+                resultContainer.textContent = data.documentation;
+                resultSection.classList.remove('hidden');
+
+            } catch (error) {
+                console.error('Error:', error);
+                showError(`An error occurred: ${error.message}. Please check the console and ensure the backend server is running.`);
+            } finally {
+                loadingIndicator.classList.add('hidden');
+                generateBtn.disabled = false;
+                generateBtn.textContent = 'Generate Documentation';
+            }
+        });
+        
+        downloadBtn.addEventListener('click', () => {
+            const documentationText = resultContainer.textContent;
+            if (!documentationText) {
+                showError("There is no documentation to download.");
+                return;
+            }
+
+            const blob = new Blob([documentationText], { type: 'text/plain' });
+            
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'documentation.txt';
+            
+            document.body.appendChild(a);
+            a.click();
+            
+            document.body.removeChild(a);
+            URL.revokeObjectURL(a.href);
+        });
+        
+
+        function showError(message) {
+            errorMessageDiv.textContent = message;
+            errorMessageDiv.classList.remove('hidden');
+        }
+    </script>
+</body>
+</html>
+
